@@ -1578,7 +1578,6 @@ function wechat_get_user_by_openid($openid) {
   return FALSE;
 }
 
-
 /**
  * Login user and get user openid
  */
@@ -1991,4 +1990,27 @@ function wechat_wechat_request_message_insert($request_message) {
  */
 function wechat_wechatuser_sex_options_list() {
   return array('1'=>t('男'), '2'=>t('女'), '0'=>t('未知') );
+}
+
+function hywechat_is_weixin(){
+  
+  if ( strpos($_SERVER['HTTP_USER_AGENT'], 'MicroMessenger') !== false ) {
+        return true;
+    }  
+    return false;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function wechat_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  $request_origin = $_SERVER['REQUEST_URI'];
+
+  if ($form_id == 'user_login' || $form_id == 'user_login_block' || $form_id == 'user_register_form') {
+      if(hywechat_is_weixin() && empty($user->uid)){  
+        wechat_snsapi_userinfo($request_origin,'error');
+      }
+  }
 }
