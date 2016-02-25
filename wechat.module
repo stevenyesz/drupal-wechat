@@ -2042,26 +2042,3 @@ function hywechat_get_avatar($img_src,$name){
   $file = file_save_data($image, $destination_uri, FILE_EXISTS_REPLACE);
   return $file;
 }
-
-function hywechat_is_weixin(){
-  
-  if ( strpos($_SERVER['HTTP_USER_AGENT'], 'MicroMessenger') !== false ) {
-        return true;
-    }  
-    return false;
-}
-
-/**
- * Implements hook_form_alter().
- */
-function wechat_form_alter(&$form, &$form_state, $form_id) {
-  global $user;
-
-  $request_origin = $_SERVER['REQUEST_URI'];
-
-  if ($form_id == 'user_login' || $form_id == 'user_login_block' || $form_id == 'user_register_form') {
-      if(hywechat_is_weixin() && empty($user->uid)){  
-        wechat_snsapi_userinfo($request_origin,'error');
-      }
-  }
-}
