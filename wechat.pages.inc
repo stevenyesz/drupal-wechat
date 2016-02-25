@@ -134,7 +134,7 @@ function wechat_auth() {
   }
   
   // auto register
-  $user_name = 'wechat_' . substr($access_data['openid'], 0, 20);
+  $user_name = 'wechat_' . substr($access_data['openid'], 0, 30);
   while (user_load_by_name($user_name)) {
     $user_name = $user_name . rand(0, 100);
   }
