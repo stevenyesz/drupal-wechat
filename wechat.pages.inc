@@ -133,14 +133,7 @@ function wechat_auth() {
     drupal_goto($destination);
   }
 
-  if(!wechat_connect_user(0, $access_data['openid'])){//auto register if doesn't connect
-    return false;
-  }
-
-  if (empty($destination)) {
-      $destination = 'user/' . $curuser->uid;
-  }
-  drupal_goto($destination);
+  return false;
   
 }
 
