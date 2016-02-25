@@ -1609,25 +1609,29 @@ function wechat_connect_user($uid, $openid) {
   $user_info = $we_obj->getUserInfo($openid);
   if ($user_info) {
     // auto register
-    $user_name = 'wechat_' . substr($user_info['openid'], 0, 30);
-    while (user_load_by_name($user_name)) {
-      $user_name = $user_name . rand(0, 100);
-    }
-    $new_user = array(
-      'name' => $user_name,
-      'pass' => user_password(),
-      'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-      'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-      'status' => 1,
-    );
-    // $account returns user object
-    $account = user_save(null, $new_user);
-    if (!$account) {
-      return FALSE;
-    }
+    if(empty($uid)){
+      $user_name = 'wechat_' . substr($user_info['openid'], 0, 30);
+      while (user_load_by_name($user_name)) {
+        $user_name = $user_name . rand(0, 100);
+      }
+      $new_user = array(
+        'name' => $user_name,
+        'pass' => user_password(),
+        'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+        'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+        'status' => 1,
+      );
+      // $account returns user object
+      $account = user_save(null, $new_user);
+      if (!$account) {
+        return FALSE;
+      }
+      $uid = $account->uid;
 
+    }
+    
     $wechat_user = array(
-      'uid' => $account->uid,
+      'uid' => $uid,
       'subscribe' => $user_info['subscribe'],
       'openid' => $user_info['openid'],
       'nickname' => $user_info['nickname'],
