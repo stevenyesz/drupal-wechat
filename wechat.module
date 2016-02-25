@@ -1595,6 +1595,9 @@ function wechat_snsapi_userinfo($path, $onerror) {
 
 /**
  * connect user with wechat openid
+ * create wechat_user record. delete records first if already exits.
+ * @param uid, user id want to bind whith wechat openid, zero if want to create a new user. 
+ * @return TRUE if success FALSE if failed
  */
 function wechat_connect_user($uid, $openid) {
   //允许uid可以为0，openid是唯一的
@@ -1605,8 +1608,26 @@ function wechat_connect_user($uid, $openid) {
   $we_obj->checkAuth('', '', $access_token);
   $user_info = $we_obj->getUserInfo($openid);
   if ($user_info) {
+    // auto register
+    $user_name = 'wechat_' . substr($user_info['openid'], 0, 30);
+    while (user_load_by_name($user_name)) {
+      $user_name = $user_name . rand(0, 100);
+    }
+    $new_user = array(
+      'name' => $user_name,
+      'pass' => user_password(),
+      'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+      'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+      'status' => 1,
+    );
+    // $account returns user object
+    $account = user_save(null, $new_user);
+    if (!$account) {
+      return FALSE;
+    }
+
     $wechat_user = array(
-      'uid' => $uid,
+      'uid' => $account->uid,
       'subscribe' => $user_info['subscribe'],
       'openid' => $user_info['openid'],
       'nickname' => $user_info['nickname'],
@@ -1618,6 +1639,7 @@ function wechat_connect_user($uid, $openid) {
       'subscribe_time' => $user_info['subscribe_time'],
       'extend' => array(),
     );
+
     if (drupal_write_record('wechat_user', $wechat_user)) {
       return TRUE;
     }
@@ -1797,7 +1819,7 @@ function wechat_wechatuser_access($op, $wechat_user = NULL, $account = NULL) {
 }
 
 /**
- * Fetch a wechat request message object. 
+ * Fetch a wechat_user object. 
  *
  * @param $openid
  *   wechat user openid.

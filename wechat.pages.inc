@@ -116,12 +116,12 @@ function wechat_auth() {
   
   // error
   if ((!$state) || (!$code)) { // error
-    drupal_goto($onerror);
+    return false;
   }
 
   $access_data = $we_obj->getOauthAccessToken();
   if (empty($access_data)) {
-    drupal_goto($onerror);
+    return false;
   }
   // check if already connectted
   if ($curuser = wechat_get_user_by_openid($access_data['openid'])) {
@@ -132,48 +132,16 @@ function wechat_auth() {
     }
     drupal_goto($destination);
   }
-  
-  // auto register
-  $user_name = 'wechat_' . substr($access_data['openid'], 0, 30);
-  while (user_load_by_name($user_name)) {
-    $user_name = $user_name . rand(0, 100);
-  }
-  $new_user = array(
-    'name' => $user_name,
-    'pass' => user_password(),
-    'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-    'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-    'status' => 1,
-  );
-  // $account returns user object
-  $account = user_save(null, $new_user);
-  if (!$account) {
-    drupal_goto($onerror);
-  }
-  _wechat_user_login($account->uid);
-  $wechat_user = array(
-    'uid' => $user->uid,
-    'openid' => $access_data['openid'],
-    'extend' => array(),
-  );
-  // also save user wechat information.
-  if ($state == 2) {
-    $user_info = $we_obj->getOauthUserinfo($access_data['access_token'], $access_data['openid']);
-    if (!empty($user_info)) {
-      module_invoke_all('wechat_userinfo', $user_info);
-      $wechat_user['nickname'] = $user_info['nickname'];
-      $wechat_user['sex'] = $user_info['sex'];
-      $wechat_user['province'] = $user_info['province'];
-      $wechat_user['city'] = $user_info['city'];
-      $wechat_user['country'] = $user_info['country'];
-      $wechat_user['headimgurl'] = $user_info['headimgurl'];
-    }
-  }
-  if (!drupal_write_record('wechat_user', $wechat_user)) {
-    drupal_goto($onerror);
+
+  if(!wechat_connect_user(0, $access_data['openid'])){//auto register if doesn't connect
+    return false;
   }
 
+  if (empty($destination)) {
+      $destination = 'user/' . $curuser->uid;
+  }
   drupal_goto($destination);
+  
 }
 
 /**
