@@ -1608,19 +1608,30 @@ function wechat_connect_user($uid, $openid) {
   $we_obj->checkAuth('', '', $access_token);
   $user_info = $we_obj->getUserInfo($openid);
   if ($user_info) {
+
+    if(empty($user_info['subscribe'])){
+      return FALSE;
+    }
+
     // auto register
     if(empty($uid)){
       $user_name = 'wechat_' . substr($user_info['openid'], 0, 30);
       while (user_load_by_name($user_name)) {
         $user_name = $user_name . rand(0, 100);
       }
-      $new_user = array(
-        'name' => $user_name,
-        'pass' => user_password(),
-        'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-        'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-        'status' => 1,
-      );
+
+
+    $img_src =$user_info['headimgurl'];
+    $file = hywechat_get_avatar($img_src,$user_info['openid']);
+
+    $new_user = array(
+      'name' => $user_name,
+      'pass' => user_password(),
+      'picture' => $file,
+      'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+      'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+      'status' => 1,
+    );
       // $account returns user object
       $account = user_save(null, $new_user);
       if (!$account) {
@@ -2016,6 +2027,20 @@ function wechat_wechat_request_message_insert($request_message) {
  */
 function wechat_wechatuser_sex_options_list() {
   return array('1'=>t('男'), '2'=>t('女'), '0'=>t('未知') );
+}
+
+function hywechat_get_avatar($img_src,$name){
+  //Get file type & name
+  $path = parse_url($img_src, PHP_URL_PATH);
+  $extension = pathinfo($path, PATHINFO_EXTENSION);
+  if(empty($extension)) $extension = 'png';
+  $destination_filename = "avatar_$name.$extension";
+
+  $picture_directory = file_default_scheme() . '://' . variable_get('user_picture_path', 'pictures');
+  $destination_uri = $picture_directory . '/' . $destination_filename;
+  $image = file_get_contents($img_src);
+  $file = file_save_data($image, $destination_uri, FILE_EXISTS_REPLACE);
+  return $file;
 }
 
 function hywechat_is_weixin(){
