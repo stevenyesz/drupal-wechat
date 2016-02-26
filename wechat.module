@@ -2091,7 +2091,7 @@ function hywechat_avatar($data){
 
     $img_src =$wechat_user->headimgurl;
     try{
-        $file = hywechat_get_avatar($img_src,$user_info->openid);
+        $file = hywechat_get_avatar($img_src,$data->openid);
     }catch(Exception $e){
         error_log($e);
         return false;
