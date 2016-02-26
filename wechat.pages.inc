@@ -116,24 +116,26 @@ function wechat_auth() {
   
   // error
   if ((!$state) || (!$code)) { // error
-    return false;
+    return drupal_goto($onerror);
   }
 
   $access_data = $we_obj->getOauthAccessToken();
   if (empty($access_data)) {
-    return false;
+    return drupal_goto($onerror);
   }
   // check if already connectted
-  if ($curuser = wechat_get_user_by_openid($access_data['openid'])) {
-    _wechat_user_login($curuser->uid);
-    // todo update user info
-    if (empty($destination)) {
-      $destination = 'user/' . $curuser->uid;
-    }
-    drupal_goto($destination);
+  $curuser = wechat_get_user_by_openid($access_data['openid']);
+  if(empty($curuser)){
+      if(wechat_connect_user(0, $access_data['openid'])){//try auto register and login again
+        $curuser = wechat_get_user_by_openid($access_data['openid']);
+     }
   }
 
-  return false;
+  if(!empty($curuser)){
+    _wechat_user_login($curuser->uid);
+  }
+
+  drupal_goto($destination);
   
 }
 

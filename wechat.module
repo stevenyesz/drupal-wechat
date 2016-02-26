@@ -1600,8 +1600,6 @@ function wechat_snsapi_userinfo($path, $onerror) {
  * @return TRUE if success FALSE if failed
  */
 function wechat_connect_user($uid, $openid) {
-  //允许uid可以为0，openid是唯一的
-  db_query('delete FROM {wechat_user} WHERE openid=:openid', array(':openid' => $openid));
   $we_obj = _wechat_init_obj();
   //由于我们使用的wechat SDK，目前没有setAccessToken($access_token)，所以我们这里只能委屈一下了
   $access_token = wechat_get_access_token();
@@ -1609,29 +1607,22 @@ function wechat_connect_user($uid, $openid) {
   $user_info = $we_obj->getUserInfo($openid);
   if ($user_info) {
 
-    if(empty($user_info['subscribe'])){
-      return FALSE;
-    }
-
     // auto register
     if(empty($uid)){
       $user_name = 'wechat_' . substr($user_info['openid'], 0, 30);
       while (user_load_by_name($user_name)) {
         $user_name = $user_name . rand(0, 100);
       }
-
-
-    $img_src =$user_info['headimgurl'];
-    $file = hywechat_get_avatar($img_src,$user_info['openid']);
-
-    $new_user = array(
-      'name' => $user_name,
-      'pass' => user_password(),
-      'picture' => $file,
-      'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-      'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
-      'status' => 1,
-    );
+      $img_src =$user_info['headimgurl'];
+      $file = hywechat_get_avatar($img_src,$user_info['openid']);
+      $new_user = array(
+        'name' => $user_name,
+        'pass' => user_password(),
+        'picture' => $file,
+        'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+        'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
+        'status' => 1,
+      );
       // $account returns user object
       $account = user_save(null, $new_user);
       if (!$account) {
@@ -1655,6 +1646,8 @@ function wechat_connect_user($uid, $openid) {
       'extend' => array(),
     );
 
+    //允许uid可以为0，openid是唯一的
+    db_query('delete FROM {wechat_user} WHERE openid=:openid', array(':openid' => $openid));
     if (drupal_write_record('wechat_user', $wechat_user)) {
       return TRUE;
     }
@@ -1719,11 +1712,20 @@ function wechat_wechat_build_response_message($response_message, $request_messag
     if ($request_message_wrapper->wechat_event->value() == 'subscribe') {
       $uid = 0;
       $openid = $request_message->from_user_name;
-      $result = wechat_connect_user($uid, $openid);
+      $wechat_user = wechat_user_load($openid);
+      if(empty($wechat_user)){
+        $result = wechat_connect_user($uid, $openid);
+      }else{
+        db_query('update {wechat_user} set subscribe = 1 WHERE openid=:openid', array(':openid' => $openid));
+      }   
     }
+
     if ($request_message_wrapper->wechat_event->value() == 'unsubscribe') {
       $openid = $request_message->from_user_name;
-      db_query('delete FROM {wechat_user} WHERE openid=:openid', array(':openid' => $openid));
+      $wechat_user = wechat_user_load($openid);
+      if(!empty($wechat_user)){
+        db_query('update {wechat_user} set subscribe = 0 WHERE openid=:openid', array(':openid' => $openid));
+      }
     }	
     //用户扫描二维码，绑定账号
     $wechat_event = $request_message_wrapper->wechat_event->value();
@@ -2012,11 +2014,10 @@ class WechatUser extends Entity {
  * Implementation of hook_wechat_request_message_insert().
  */
 function wechat_wechat_request_message_insert($request_message) {
-
   $request_message_wrapper = entity_metadata_wrapper('wechat_request_message', $request_message);  
   $openid = $request_message->from_user_name;
   $wechatuser = wechat_wechatuser_load($openid);
-  if(empty($wechatuser)){
+  if(empty($wechatuser) && $request_message->msg_type != 'event'){//event在build_response_message时调用
     $uid = 0;
     $result = wechat_connect_user($uid, $openid);    
   }
@@ -2041,4 +2042,27 @@ function hywechat_get_avatar($img_src,$name){
   $image = file_get_contents($img_src);
   $file = file_save_data($image, $destination_uri, FILE_EXISTS_REPLACE);
   return $file;
+}
+
+function hywechat_is_weixin(){
+  
+  if ( strpos($_SERVER['HTTP_USER_AGENT'], 'MicroMessenger') !== false ) {
+        return true;
+    }  
+    return false;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function wechat_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  $destination = isset($_GET['destination'])?$_GET['destination']:'';
+
+  if ($form_id == 'user_login' || $form_id == 'user_login_block' || $form_id == 'user_register_form') {
+      if(hywechat_is_weixin() && empty($user->uid)){  
+        wechat_snsapi_userinfo($destination,'error');
+      }
+  }
 }
