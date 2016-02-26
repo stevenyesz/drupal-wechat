@@ -2058,10 +2058,11 @@ function hywechat_is_weixin(){
 function wechat_form_alter(&$form, &$form_state, $form_id) {
   global $user;
 
-  $destination = isset($_GET['destination'])?$_GET['destination']:'';
+  $destination = isset($_GET['dst'])?$_GET['dst']:'';
 
   if ($form_id == 'user_login' || $form_id == 'user_login_block' || $form_id == 'user_register_form') {
       if(hywechat_is_weixin() && empty($user->uid)){  
+        echo $destination;
         wechat_snsapi_userinfo($destination,'error');
       }
   }
