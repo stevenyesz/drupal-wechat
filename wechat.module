@@ -1609,16 +1609,14 @@ function wechat_connect_user($uid, $openid) {
 
     // auto register
     if(empty($uid)){
-      $user_name = 'wechat_' . substr($user_info['openid'], 0, 30);
+      $user_name = $user_info['nickname'];
       while (user_load_by_name($user_name)) {
-        $user_name = $user_name . rand(0, 100);
+        $user_name = $user_name . rand(0, 10000);
       }
-      $img_src =$user_info['headimgurl'];
-      $file = hywechat_get_avatar($img_src,$user_info['openid']);
+      
       $new_user = array(
         'name' => $user_name,
         'pass' => user_password(),
-        'picture' => $file,
         'mail' => $user_name . '@' . $_SERVER['SERVER_NAME'],
         'init' => $user_name . '@' . $_SERVER['SERVER_NAME'],
         'status' => 1,
@@ -1630,6 +1628,9 @@ function wechat_connect_user($uid, $openid) {
       }
       $uid = $account->uid;
 
+      $queue = DrupalQueue::get('wechat_avatar');
+      $job = array('openid'=>$user_info['openid']);
+      $queue->createItem((object)$job);
     }
     
     $wechat_user = array(
@@ -2066,4 +2067,43 @@ function wechat_form_alter(&$form, &$form_state, $form_id) {
         wechat_snsapi_userinfo($destination,'error');
       }
   }
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function wechat_cron_queue_info(){
+  $queues['wechat_avatar'] = array(
+    'worker callback' => 'hywechat_avatar',
+    'time' => 20,
+  );
+
+  return $queues;
+}
+
+
+function hywechat_avatar($data){
+    $wechat_user = wechat_wechatuser_load($data->openid);
+
+    if(empty($wechat_user->uid)){
+      return false;
+    }
+
+    $img_src =$wechat_user->headimgurl;
+    try{
+        $file = hywechat_get_avatar($img_src,$user_info->openid);
+    }catch(Exception $e){
+        error_log($e);
+        return false;
+    }
+
+
+    $user = user_load($wechat_user->uid);
+    $user->picture = $file; 
+    try{ user_save($user); }catch(Exception $e){
+      error_log($e);
+      return false;
+    }
+
+    return true;
 }
